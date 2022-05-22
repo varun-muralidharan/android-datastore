@@ -19,17 +19,14 @@ package com.codelab.android.datastore.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.asLiveData
-import com.codelab.android.datastore.data.SortOrder
-import com.codelab.android.datastore.data.Task
-import com.codelab.android.datastore.data.TasksRepository
-import com.codelab.android.datastore.data.UserPreferencesRepository
-import kotlinx.coroutines.flow.MutableStateFlow
+import androidx.lifecycle.viewModelScope
+import com.codelab.android.datastore.data.*
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 
 data class TasksUiModel(
     val tasks: List<Task>,
-    val showCompleted: Boolean,
-    val sortOrder: SortOrder
+    val preferences: UserPreferences
 )
 
 class TasksViewModel(
@@ -37,23 +34,15 @@ class TasksViewModel(
     private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
-    // Keep the show completed filter as a stream of changes
-    private val showCompletedFlow = MutableStateFlow(false)
-
-    // Keep the sort order as a stream of changes
-    private val sortOrderFlow = userPreferencesRepository.sortOrderFlow
-
     // Every time the sort order, the show completed filter or the list of tasks emit,
     // we should recreate the list of tasks
     private val tasksUiModelFlow = combine(
         repository.tasks,
-        showCompletedFlow,
-        sortOrderFlow
-    ) { tasks: List<Task>, showCompleted: Boolean, sortOrder: SortOrder ->
+        userPreferencesRepository.userPreferencesFlow,
+    ) { tasks: List<Task>, preferences: UserPreferences ->
         return@combine TasksUiModel(
-            tasks = filterSortTasks(tasks, showCompleted, sortOrder),
-            showCompleted = showCompleted,
-            sortOrder = sortOrder
+            tasks = filterSortTasks(tasks, preferences.showCompleted, preferences.sortOrder),
+            preferences = preferences
         )
     }
     val tasksUiModel = tasksUiModelFlow.asLiveData()
@@ -81,15 +70,21 @@ class TasksViewModel(
     }
 
     fun showCompletedTasks(show: Boolean) {
-        showCompletedFlow.value = show
+        viewModelScope.launch {
+            userPreferencesRepository.updateShowCompleted(show)
+        }
     }
 
     fun enableSortByDeadline(enable: Boolean) {
-        userPreferencesRepository.enableSortByDeadline(enable)
+        viewModelScope.launch {
+            userPreferencesRepository.enableSortByDeadline(enable)
+        }
     }
 
     fun enableSortByPriority(enable: Boolean) {
-        userPreferencesRepository.enableSortByPriority(enable)
+        viewModelScope.launch {
+            userPreferencesRepository.enableSortByPriority(enable)
+        }
     }
 }
 

@@ -16,8 +16,11 @@
 
 package com.codelab.android.datastore.ui
 
+import android.content.Context
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.datastore.preferences.SharedPreferencesMigration
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.DividerItemDecoration
 import com.codelab.android.datastore.data.SortOrder
@@ -40,7 +43,7 @@ class TasksActivity : AppCompatActivity() {
 
         viewModel = ViewModelProvider(
             this,
-            TasksViewModelFactory(TasksRepository, UserPreferencesRepository.getInstance(this))
+            TasksViewModelFactory(TasksRepository, UserPreferencesRepository(this.dataStore))
         )[TasksViewModel::class.java]
 
         setupRecyclerView()
@@ -49,8 +52,8 @@ class TasksActivity : AppCompatActivity() {
 
         viewModel.tasksUiModel.observe(this) { tasksUiModel ->
             adapter.submitList(tasksUiModel.tasks)
-            updateSort(tasksUiModel.sortOrder)
-            binding.showCompletedSwitch.isChecked = tasksUiModel.showCompleted
+            updateSort(tasksUiModel.preferences.sortOrder)
+            binding.showCompletedSwitch.isChecked = tasksUiModel.preferences.showCompleted
         }
     }
 
@@ -82,5 +85,14 @@ class TasksActivity : AppCompatActivity() {
             sortOrder == SortOrder.BY_DEADLINE || sortOrder == SortOrder.BY_DEADLINE_AND_PRIORITY
         binding.sortPriority.isChecked =
             sortOrder == SortOrder.BY_PRIORITY || sortOrder == SortOrder.BY_DEADLINE_AND_PRIORITY
+    }
+
+    companion object {
+        private const val USER_PREFERENCES_NAME = "user_preferences"
+
+        private val Context.dataStore by preferencesDataStore(
+            name = USER_PREFERENCES_NAME,
+            produceMigrations = { listOf(SharedPreferencesMigration(it, USER_PREFERENCES_NAME)) }
+        )
     }
 }
